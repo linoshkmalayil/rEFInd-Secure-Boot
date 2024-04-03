@@ -1,0 +1,13 @@
+[Trigger]
+Operation=Install
+Operation=Upgrade
+Type=Package
+Target=linux
+# Change the linux part above if a different kernel is used
+
+[Action]
+Description=Sign Kernel for SecureBoot
+Depends=mkinitcpio
+When=PostTransaction
+NeedsTargets
+Exec=/bin/sh -c '/etc/refind.d/sign_kernel.sh'

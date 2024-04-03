@@ -1,0 +1,11 @@
+[Trigger]
+Operation=Install
+Operation=Upgrade
+Type=Package
+Target=refind
+
+[Action]
+Description=Sign REFInd for SecureBoot
+When=PostTransaction
+NeedsTargets
+Exec=/bin/sh -c '/usr/bin/python /etc/refind.d/update_refind.py'
