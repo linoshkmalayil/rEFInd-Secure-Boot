@@ -70,6 +70,10 @@ def detect_esp():
 def mount_esp(esp_partition: str):
     logging.debug("Trying to mount ESP Partition %s to %s", esp_partition, "/boot/efi")
 
+    if not os.path.isdir("/boot/efi"):
+        logging.debug("Directory /boot/efi not found, creating...")
+        os.makedirs("/boot/efi")
+
     cmd = "mount " + esp_partition + " /boot/efi"
     run_code = subprocess.run(cmd, shell=True).returncode
     
@@ -123,7 +127,11 @@ def copy_files():
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     logging.debug("Copying updater scripts to /etc/refind.d")
-    os.makedirs("/etc/refind.d")
+
+    if not os.path.isdir("/etc/refind.d"):
+        logging.debug("Directory /etc/refind.d not found, creating...")
+        os.makedirs("/etc/refind.d")
+
     copyfile("/etc/refind.d/update_refind.py", current_dir + "/update_refind.py")
     copyfile("/etc/refind.d/update_refind.py", current_dir + "/sign_kernel.sh")
 
@@ -132,7 +140,11 @@ def copy_files():
     subprocess.run(chmod_cmd, shell=True)
 
     logging.debug("Copying hooks to /etc/pacman.d/hooks")
-    os.makedirs("/etc/pacman.d/hooks")
+
+    if not os.path.isdir("/etc/pacman.d/hooks"):
+        logging.debug("Directory /etc/pacman.d/hooks not found, creating...")
+        os.makedirs("/etc/pacman.d/hooks")
+
     copyfile("/etc/refind.d/update_refind.py", current_dir + "/update_refind.py")
     copyfile("/etc/refind.d/update_refind.py", current_dir + "/sign_kernel.sh")
 
