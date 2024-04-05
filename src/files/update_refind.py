@@ -3,13 +3,18 @@ import logging
 
 def check_packages():
     logging.debug("Checking if the packages refind, mokutil, sbsigntools are installed")
-    required_packages = ["refind", "mokutil", "sbsigntools", "shim"]
+    required_packages = ["refind", "mokutil", "sbsigntools", "shim-signed"]
 
     for package in required_packages:
+
         cmd = "pacman -Q " + package
         check_code = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode
 
         if check_code:
+            if package == "shim-signed":
+                logging.error("Package shim-signed is not installed, install it from aur first and run 'sudo python update_refind.py'")
+                return False
+
             logging.warning("Package %s is not installed, installing", package)
             
             cmd = "yes | pacman -S " + package
