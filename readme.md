@@ -6,7 +6,9 @@ This project is still work in progress
 
 ## Requirements
 
-This script currently only requires the built-in Python 3 `python` package
+This script requires the following packages installed
+* `python` (This installer is running on python afterall)
+* `base-devel` (To setup the Arch Build Environment to build and aur package)
 
 ## Running the Script
 
@@ -25,3 +27,4 @@ These scripts assumes the following:
 * That you are already booted into the system in a privileged user. 
 (aka not in chroot, not in root user)
 * Other boot loaders have not signed the kernel for their use with Secure Boot 
+* If you're using the default refind_linux.conf to boot from rEFInd, it still uses the unsigned image backup that is created, must check how to explictly pass a loader image
