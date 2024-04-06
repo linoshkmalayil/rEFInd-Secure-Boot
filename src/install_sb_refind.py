@@ -42,7 +42,7 @@ def check_packages():
     if check_code:
         logging.warning("Package shim-signed is not installed, installing from aur")
 
-        cmd = "git clone https://aur.archlinux.org/shim-signed.git && cd shim-signed && Yes | makepkg -si && cd .. && rm -rf shim-signed"
+        cmd = "git clone https://aur.archlinux.org/shim-signed.git && cd shim-signed && makepkg -si && cd .. && rm -rf shim-signed"
         install_result = subprocess.run(cmd, shell=True).returncode
         if install_result:
             logging.error("Failed to install package shim-signed. Aborting!")
