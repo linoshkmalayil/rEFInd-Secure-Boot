@@ -3,7 +3,7 @@ import logging
 
 from os import path
 
-def check_secureboot():
+def check_secureboot() -> bool:
     logging.debug("Checking if SecureBoot is on")
     cmd = "mokutil --sb-state"
     secureboot_state = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
@@ -13,9 +13,10 @@ def check_secureboot():
     
     return False
 
-def check_packages():
+def check_packages() -> bool:
     logging.debug("Updating pacman database...")
     cmd = "sudo pacman -Sy"
+    subprocess.run(cmd, shell=True)
 
     logging.debug("Checking if the packages refind, mokutil, sbsigntools are installed")
     required_packages = ["refind", "mokutil", "sbsigntools"]
@@ -52,7 +53,7 @@ def check_packages():
     logging.info("Required packages are installed.")    
     return True
 
-def get_refind_data():
+def get_refind_data() -> list:
     logging.debug("Finding rEFInd Boot Entries")
 
     efi_output = subprocess.run("efibootmgr | grep rEFInd ", shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
@@ -73,7 +74,7 @@ def get_refind_data():
 
     return refind_data
 
-def find_esp(refind_data: list):
+def find_esp(refind_data: list) -> str:
     esp_partuuid = refind_data[0][1]
     logging.debug("Trying to find partition with PARTUUID %s", esp_partuuid)
     cmd = "lsblk --output NAME,PARTUUID | grep " + esp_partuuid
@@ -84,14 +85,14 @@ def find_esp(refind_data: list):
 
     return esp_part
 
-def delete_entries(refind_data: list):
+def delete_entries(refind_data: list) -> None:
     logging.debug("Deleting rEFInd entries")
 
     for entry in refind_data:
         cmd = "sudo efibootmgr --delete-bootnum --bootnum " + entry[0]
         subprocess.run(cmd, shell=True)
     
-def mount_esp(esp_partition: str):
+def mount_esp(esp_partition: str) -> bool:
     logging.debug("Trying to mount ESP Partition %s to %s", esp_partition, "/boot/efi")
 
     if not path.isdir("/boot/efi"):
@@ -110,13 +111,13 @@ def mount_esp(esp_partition: str):
     logging.info("Mounted successfully")
     return True
     
-def unmount_esp():
+def unmount_esp() -> None:
     logging.debug("Unmounting ESP Partiton")
 
     cmd = "sudo umount -R /boot/efi"
     subprocess.run(cmd, shell=True)
 
-def refind_install():
+def refind_install() -> bool:
     logging.debug("Running refind-install to upgrade rEFInd installation.")
     
     cmd = "sudo refind-install --shim /usr/share/shim-signed/shimx64.efi --localkeys"
@@ -128,7 +129,7 @@ def refind_install():
     
     return True
 
-def sign_linux_kernel():
+def sign_linux_kernel() -> bool:
     logging.debug("Creating unsigned backup of kernel image /boot/vmlinuz-linux")
     copy_cmd = "sudo cp /boot/vmlinuz-linux /boot/vmlinuz-linux-unsigned"
     subprocess.run(copy_cmd, shell=True)
@@ -149,7 +150,7 @@ def sign_linux_kernel():
     logging.info("Sucessfully signed the kernel /boot/vmlinuz-linux")
     return True
 
-def copy_files():
+def copy_files() -> None:
     current_dir = path.dirname(path.abspath(__file__))
 
     logging.debug("Copying updater scripts to /etc/refind.d")
@@ -179,7 +180,7 @@ def copy_files():
     subprocess.run(copy_refind_hook + " && " + copy_linux_hook, shell=True)
 
 
-def main():
+def main() -> None:
     logging.basicConfig(format="%(levelname)s:%(message)s")
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)

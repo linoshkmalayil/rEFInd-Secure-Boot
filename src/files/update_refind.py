@@ -1,7 +1,7 @@
 import subprocess
 import logging
 
-def check_packages():
+def check_packages() -> bool:
     logging.debug("Checking if the packages refind, mokutil, sbsigntools are installed")
     required_packages = ["refind", "mokutil", "sbsigntools", "shim-signed"]
 
@@ -28,7 +28,7 @@ def check_packages():
     logging.info("Required packages are installed.")    
     return True
 
-def get_refind_data():
+def get_refind_data() -> list:
     logging.debug("Finding rEFInd Boot Entries")
 
     efi_output = subprocess.run("efibootmgr | grep rEFInd ", shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
@@ -49,7 +49,7 @@ def get_refind_data():
 
     return refind_data
 
-def find_esp(refind_data: list):
+def find_esp(refind_data: list) -> str:
     esp_partuuid = refind_data[0][1]
     logging.debug("Trying to find partition with PARTUUID %s", esp_partuuid)
     cmd = "lsblk --output NAME,PARTUUID | grep " + esp_partuuid
@@ -60,14 +60,14 @@ def find_esp(refind_data: list):
 
     return esp_part
 
-def delete_entries(refind_data: list):
+def delete_entries(refind_data: list) -> None:
     logging.debug("Deleting rEFInd entries")
 
     for entry in refind_data:
         cmd = "efibootmgr --delete-bootnum --bootnum " + entry[0]
         subprocess.run(cmd, shell=True)
 
-def mount_esp(esp_partition: str):
+def mount_esp(esp_partition: str) -> bool:
     logging.debug("Trying to mount ESP Partition %s to %s", esp_partition, "/boot/efi")
 
     cmd = "mount " + esp_partition + " /boot/efi"
@@ -81,13 +81,13 @@ def mount_esp(esp_partition: str):
     logging.info("Mounted successfully")
     return True
     
-def unmount_esp():
+def unmount_esp() -> None:
     logging.debug("Unmounting ESP Partiton")
 
     cmd = "umount -R /boot/efi"
     subprocess.run(cmd, shell=True)
 
-def refind_install():
+def refind_install() -> bool:
     logging.debug("Running refind-install to upgrade rEFInd installation.")
     
     cmd = "refind-install --shim /usr/share/shim-signed/shimx64.efi --localkeys"
@@ -100,7 +100,7 @@ def refind_install():
     return True
 
 
-def main():
+def main() -> None:
     logging.basicConfig(format="%(levelname)s:%(message)s")
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)

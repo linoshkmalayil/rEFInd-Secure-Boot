@@ -3,9 +3,10 @@ import logging
 
 from os import path
 
-def check_packages():
+def check_packages() -> bool:
     logging.debug("Updating pacman database...")
     cmd = "sudo pacman -Sy"
+    subprocess.run(cmd, shell=True)
 
     logging.debug("Checking if the packages refind and efibootmgr are installed")
     required_packages = ["refind", "efibootmgr"]
@@ -29,7 +30,7 @@ def check_packages():
     return True
 
 
-def detect_esp():
+def detect_esp() -> str:
     logging.debug("Searching for ESP Partitions...")
 
     detect_cmd = "sudo fdisk --list | grep 'EFI System'"
@@ -52,7 +53,7 @@ def detect_esp():
         
         return esp_entries[choice-1]
     
-def mount_esp(esp_partition: str):
+def mount_esp(esp_partition: str) -> bool:
     logging.debug("Trying to mount ESP Partition %s to %s", esp_partition, "/boot/efi")
 
     if not path.isdir("/boot/efi"):
@@ -71,13 +72,13 @@ def mount_esp(esp_partition: str):
     logging.info("Mounted successfully")
     return True
 
-def unmount_esp():
+def unmount_esp() -> None:
     logging.debug("Unmounting ESP Partiton")
 
     cmd = "sudo umount -R /boot/efi"
     subprocess.run(cmd, shell=True)
 
-def refind_install():
+def refind_install() -> bool:
     logging.debug("Running refind-install to install refind")
     
     cmd = "sudo refind-install"
@@ -90,7 +91,7 @@ def refind_install():
     logging.info("refind successfully installed.")
     return True
 
-def find_root_uuid():
+def find_root_uuid() -> str:
     logging.debug("Finding root partition UUID...")
 
     with open("/etc/fstab", "r") as fp:
@@ -106,7 +107,7 @@ def find_root_uuid():
     logging.info("Found root partition UUID: %s.", root_uuid)
     return root_uuid
 
-def update_refind_linux_conf(root_uuid: str):
+def update_refind_linux_conf(root_uuid: str) -> None:
     REFIND_ENTRY = """
 "Boot with standard options"  "rw root=UUID={uuid} initrd=/boot/initramfs-linux.img {microcode_initrd}"
 "Boot to single-user mode"    "rw root=UUID={uuid} initrd=/boot/initramfs-linux.img {microcode_initrd} single"
@@ -130,7 +131,7 @@ def update_refind_linux_conf(root_uuid: str):
 
     logging.info("Updated /boot/refind.conf.")
 
-def main():
+def main() -> None:
     logging.basicConfig(format="%(levelname)s:%(message)s")
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
