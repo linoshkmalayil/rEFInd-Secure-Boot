@@ -41,6 +41,7 @@ def detect_esp() -> str:
         data.remove("")
     esp_entries = [entry.split(" ")[0] for entry in data]
     
+    choice = 0
     if len(esp_entries) > 1:
         logging.info("Multiple ESP Paritions found, please choose one")
         
@@ -50,8 +51,10 @@ def detect_esp() -> str:
         choice = len(esp_entries) + 1
         while(choice > len(esp_entries)):
             choice = int(input("Enter choice: "))
-        
-        return esp_entries[choice-1]
+    
+    logging.info("Using ESP Partition %s.", esp_entries[choice-1])
+    return esp_entries[choice-1]
+
     
 def mount_esp(esp_partition: str) -> bool:
     logging.debug("Trying to mount ESP Partition %s to %s", esp_partition, "/boot/efi")
@@ -65,7 +68,7 @@ def mount_esp(esp_partition: str) -> bool:
     run_code = subprocess.run(cmd, shell=True).returncode
     
     if run_code:
-        logging.error("Failed to mount %s to /boot/efi", esp_partition)
+        logging.error("Failed to mount %s to /boot/efi!", esp_partition)
         
         return False
     
@@ -92,19 +95,20 @@ def refind_install() -> bool:
     return True
 
 def find_root_uuid() -> str:
-    logging.debug("Finding root partition UUID...")
+    logging.debug("Finding root UUID...")
 
     with open("/etc/fstab", "r") as fp:
-        paritition_data = fp.read()
+        partition_data = fp.read()
 
-    for entry in paritition_data.split("\n"):
+    for entry in partition_data.split("\n"):
         if "/" in entry.split():
             root_uuid = entry.split()[0].split("=")[1]
-        else:
-            logging.error("Failed to find root partition UUID")
-            return None
     
-    logging.info("Found root partition UUID: %s.", root_uuid)
+    if not root_uuid:
+        logging.error("Failed to find root partition UUID!")
+        return None
+
+    logging.info("Found root UUID: %s.", root_uuid)
     return root_uuid
 
 def update_refind_linux_conf(root_uuid: str) -> None:
@@ -143,7 +147,7 @@ def main() -> None:
     esp_part = detect_esp()
     root_uuid = find_root_uuid()
 
-    if root_uuid is None:
+    if root_uuid == None:
         logging.error("Failed to install rEFInd, please run the steps manually!")
         exit(2)
 

@@ -179,49 +179,69 @@ def copy_files() -> None:
     copy_linux_hook = "sudo cp " + current_dir + "/files/linux.hook " + "/etc/pacman.d/hooks/linux.hook"
     subprocess.run(copy_refind_hook + " && " + copy_linux_hook, shell=True)
 
-def find_root_guids() -> str:
-    logging.debug("Finding root UUIDs...")
-    cmd = "lsblk -o NAME,MOUNTPOINT,UUID,PARTUUID"
+def find_root_uuid() -> str:
+    logging.debug("Finding root UUID...")
+    cmd = "lsblk -o NAME,MOUNTPOINT,UUID"
 
     root_uuid = ""
-    root_part_guid = ""
     lsblk_ouput = subprocess.run(cmd,shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
     for line in lsblk_ouput.split("\n"):
         if "/" in line.split():
             root_uuid = line.split()[2]
-            root_part_guid = line.split()[3]
 
-    if not root_uuid or not root_part_guid:
-        logging.error("Failed to find root UUIDs!")
-        return None, None 
+    if not root_uuid:
+        logging.error("Failed to find root UUID!")
+        return None 
 
     logging.info("Found root UUID: %s.", root_uuid)
-    logging.info("Found root partition GUID: %s.", root_part_guid)
-    return root_uuid, root_part_guid
+    return root_uuid
 
+def rename_root_volume() -> str:
+    logging.debug("Renaming root partition...")
+    
+    logging.debug("Finding root partition...")
+    cmd = "lsblk -o NAME,MOUNTPOINTS"
+    lsblk_ouput = subprocess.run(cmd,shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
+    
+    root_partition = ""
+    for line in lsblk_ouput.split("\n"):
+        if "/" in line.split():
+            root_partition = "/dev/" + line.split(" ")[0].replace("├─","").replace("└─","")
+    
 
-def add_archlinux_entry(root_uuid: str, root_partition_guid: str) -> None:
+    if not root_partition:
+        logging.error("Failed to find root partition!")
+        return ""
+    
+    root_name = input("Enter the name for root partition: ")
+    cmd = "sudo e2label " + root_partition + ' "' + root_name + '"'
+    subprocess.run(cmd, shell=True)
+    
+    logging.info("Renamed root partition %s as %s", root_partition, root_name)
+    return root_name
+
+def add_archlinux_entry(root_uuid: str, root_partition_name: str) -> None:
     ENTRY_DATA = ["",
-        '   menuentry "Arch Linux" {',
+        'menuentry "Arch Linux" {',
         '   icon     \\EFI\\refind\\icons\\os_arch.png',
         '   ostype   Linux',
-        '   volume   {partition_guid}',
+        '   volume   "{root_volume_name}"',
         '   loader   /boot/vmlinuz-linux',
         '   initrd   /boot/initramfs-linux.img',
         '   options  "rw root=UUID={uuid} {microcode_initrd}"',
         '   submenuentry "Boot using fallback initramfs" {',
         '       initrd /boot/initramfs-linux-fallback.img',
-        '       }',
+        '   }',
         '   submenuentry "Boot to Single-User Mode" {',
 	    '       add_options "single"',
-        '       }',
+        '   }',
         '   submenuentry "Boot to terminal" {',
         '       add_options "systemd.unit=multi-user.target"',
-        '       }',
         '   }',
+        '}',
     ]
 
-    ENTRY_DATA[4] = ENTRY_DATA[4].format(partition_guid=root_partition_guid)
+    ENTRY_DATA[4] = ENTRY_DATA[4].format(root_volume_name=root_partition_name)
     
     logging.debug("Checking if microcode image is found in /boot")
     if path.isfile("/boot/intel-ucode.img"):
@@ -233,13 +253,21 @@ def add_archlinux_entry(root_uuid: str, root_partition_guid: str) -> None:
     else:
         logging.info("No Microcode images found. Skipping...")
         ENTRY_DATA[7] = ENTRY_DATA[7].format(uuid=root_uuid, microcode_initrd="")
-        REFIND_ENTRY = REFIND_ENTRY.format(uuid=root_uuid, microcode_initrd="")
     
     refind_entry = "\n".join(ENTRY_DATA)
 
     logging.debug("Adding menuentry to /boot/efi/EFI/refind/refind.conf...")
-    with open("/boot/efi/EFI/refind/refind.conf", "a") as fp:
-        fp.write(refind_entry)
+    with open("/boot/efi/EFI/refind/refind.conf", "r") as rp:
+        refind_data = rp.read()
+
+    refind_data += refind_entry
+    refind_data = refind_data.replace("#scanfor internal,external,optical,manual,firmware", "scanfor manual,internal,external,optical,firmware")
+    with open("refind.conf", "w") as wp:
+        wp.write(refind_data)
+
+    current_dir = path.dirname(path.abspath(__file__))
+    copy_refind_conf = "sudo mv " + current_dir + "/refind.conf " + "/boot/efi/EFI/refind/refind.conf"
+    subprocess.run(copy_refind_conf, shell=True)
 
     logging.info("Updated /boot/efi/EFI/refind/refind.conf.")
 
@@ -278,13 +306,19 @@ def main() -> None:
         logging.error("Failed to install rEFInd, please run the steps manually!")
         exit(4)
 
-    root_uuid, root_part_guid = find_root_guids()
+    root_uuid = find_root_uuid()
 
-    if root_uuid == None or root_part_guid == None:
+    if root_uuid == None:
         logging.error("Failed to install rEFInd, please run the steps manually!")
         exit(5)
 
-    add_archlinux_entry(root_uuid, root_part_guid)
+    root_partition_name = rename_root_volume()
+
+    if not root_partition_name:
+        logging.error("Failed to install rEFInd, please run the steps manually!")
+        exit(6)
+
+    add_archlinux_entry(root_uuid, root_partition_name)
     
     unmount_esp()
     logging.info("rEFInd installed successfully!")

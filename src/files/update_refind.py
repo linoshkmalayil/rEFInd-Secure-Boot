@@ -12,7 +12,7 @@ def check_packages() -> bool:
 
         if check_code:
             if package == "shim-signed":
-                logging.error("Package shim-signed is not installed, install it from aur first and run 'sudo python update_refind.py'")
+                logging.error("Package shim-signed is not installed, install it from aur first and run 'sudo python /etc/refind.d/update_refind.py'!")
                 return False
 
             logging.warning("Package %s is not installed, installing", package)
@@ -74,7 +74,7 @@ def mount_esp(esp_partition: str) -> bool:
     run_code = subprocess.run(cmd, shell=True).returncode
     
     if run_code:
-        logging.error("Failed to mount %s to /boot/efi", esp_partition)
+        logging.error("Failed to mount %s to /boot/efi!", esp_partition)
         
         return False
     
