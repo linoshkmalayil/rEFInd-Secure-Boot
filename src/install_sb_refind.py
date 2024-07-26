@@ -179,6 +179,70 @@ def copy_files() -> None:
     copy_linux_hook = "sudo cp " + current_dir + "/files/linux.hook " + "/etc/pacman.d/hooks/linux.hook"
     subprocess.run(copy_refind_hook + " && " + copy_linux_hook, shell=True)
 
+def find_root_guids() -> str:
+    logging.debug("Finding root UUIDs...")
+    cmd = "lsblk -o NAME,MOUNTPOINT,UUID,PARTUUID"
+
+    root_uuid = ""
+    root_part_guid = ""
+    lsblk_ouput = subprocess.run(cmd,shell=True, stdout=subprocess.PIPE).stdout.decode("utf-8")
+    for line in lsblk_ouput.split("\n"):
+        if "/" in line.split():
+            root_uuid = line.split()[2]
+            root_part_guid = line.split()[3]
+
+    if not root_uuid or not root_part_guid:
+        logging.error("Failed to find root UUIDs!")
+        return None, None 
+
+    logging.info("Found root UUID: %s.", root_uuid)
+    logging.info("Found root partition GUID: %s.", root_part_guid)
+    return root_uuid, root_part_guid
+
+
+def add_archlinux_entry(root_uuid: str, root_partition_guid: str) -> None:
+    ENTRY_DATA = ["",
+        '   menuentry "Arch Linux" {',
+        '   icon     \\EFI\\refind\\icons\\os_arch.png',
+        '   ostype   Linux',
+        '   volume   {partition_guid}',
+        '   loader   /boot/vmlinuz-linux',
+        '   initrd   /boot/initramfs-linux.img',
+        '   options  "rw root=UUID={uuid} {microcode_initrd}"',
+        '   submenuentry "Boot using fallback initramfs" {',
+        '       initrd /boot/initramfs-linux-fallback.img',
+        '       }',
+        '   submenuentry "Boot to Single-User Mode" {',
+	    '       add_options "single"',
+        '       }',
+        '   submenuentry "Boot to terminal" {',
+        '       add_options "systemd.unit=multi-user.target"',
+        '       }',
+        '   }',
+    ]
+
+    ENTRY_DATA[4] = ENTRY_DATA[4].format(partition_guid=root_partition_guid)
+    
+    logging.debug("Checking if microcode image is found in /boot")
+    if path.isfile("/boot/intel-ucode.img"):
+        logging.info("Intel Microcode image found (/boot/intel-ucode.img)")
+        ENTRY_DATA[7] = ENTRY_DATA[7].format(uuid=root_uuid, microcode_initrd="initrd=/boot/intel-ucode.img")
+    elif path.isfile("/boot/amd-ucode.img"):
+        logging.info("AMD Microcode image found (/boot/amd-ucode.img)")
+        ENTRY_DATA[7] = ENTRY_DATA[7].format(uuid=root_uuid, microcode_initrd="initrd=/boot/amd-ucode.img")
+    else:
+        logging.info("No Microcode images found. Skipping...")
+        ENTRY_DATA[7] = ENTRY_DATA[7].format(uuid=root_uuid, microcode_initrd="")
+        REFIND_ENTRY = REFIND_ENTRY.format(uuid=root_uuid, microcode_initrd="")
+    
+    refind_entry = "\n".join(ENTRY_DATA)
+
+    logging.debug("Adding menuentry to /boot/efi/EFI/refind/refind.conf...")
+    with open("/boot/efi/EFI/refind/refind.conf", "a") as fp:
+        fp.write(refind_entry)
+
+    logging.info("Updated /boot/efi/EFI/refind/refind.conf.")
+
 
 def main() -> None:
     logging.basicConfig(format="%(levelname)s:%(message)s")
@@ -213,13 +277,21 @@ def main() -> None:
     if not refind_install():
         logging.error("Failed to install rEFInd, please run the steps manually!")
         exit(4)
+
+    root_uuid, root_part_guid = find_root_guids()
+
+    if root_uuid == None or root_part_guid == None:
+        logging.error("Failed to install rEFInd, please run the steps manually!")
+        exit(5)
+
+    add_archlinux_entry(root_uuid, root_part_guid)
     
     unmount_esp()
     logging.info("rEFInd installed successfully!")
 
     if not sign_linux_kernel():
         logging.error("Failed to install rEFInd, please run the steps manually!")
-        exit(5)
+        exit(6)
 
     copy_files()
 
